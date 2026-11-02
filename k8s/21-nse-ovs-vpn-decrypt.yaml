@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nse-ovs-vpn-decrypt
+  namespace: nse-ovs-vpn
+  labels:
+    app: vpn-decrypt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vpn-decrypt
+  template:
+    metadata:
+      labels:
+        app: vpn-decrypt
+        "spiffe.io/spiffe-id": "true"
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node01
+      containers:
+        - name: nse
+          image: zihaocnic/nse-ovs-vpn:20260404-55b8cd9@sha256:d66ab63d4ee6228f42c20a18da669e29f63e3e0c2590925adfa79687cdb8d3e8
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN
+          env:
+            - name: SPIFFE_ENDPOINT_SOCKET
+              value: unix:///run/spire/sockets/agent.sock
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NSM_NAME
+              value: "$(POD_NAME)"
+            - name: NSM_SERVICE_NAME
+              value: nse-ovs-vpn
+            - name: NSM_LABELS
+              value: "app:vpn-decrypt"
+            - name: NSM_VPN_ROLE
+              value: decrypt
+            - name: NSM_VPN_TARGET_IP
+              value: 172.16.1.100
+            - name: NSM_VPN_PROXY_PORT
+              value: "5201"
+            - name: NSM_VPN_LISTEN_PORT
+              value: "51820"
+            - name: NSM_VPN_INTERFACE_NAME
+              value: wg0
+            - name: NSM_VPN_PRIVATE_KEY_PATH
+              value: /etc/wireguard/keys/privatekey
+            - name: NSM_VPN_PEER_PUBLIC_KEY_PATH
+              value: /etc/wireguard/keys/peer_publickey
+            - name: NSM_LOG_LEVEL
+              value: TRACE
+            - name: NSM_CONNECT_TO
+              value: unix:///var/lib/networkservicemesh/nsm.io.sock
+          volumeMounts:
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+            - name: nsm-socket
+              mountPath: /var/lib/networkservicemesh
+              readOnly: true
+            - name: wireguard-keys
+              mountPath: /etc/wireguard/keys
+              readOnly: true
+            - name: dev-net-tun
+              mountPath: /dev/net/tun
+      volumes:
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: Directory
+        - name: nsm-socket
+          hostPath:
+            path: /var/lib/networkservicemesh
+            type: DirectoryOrCreate
+        - name: wireguard-keys
+          secret:
+            secretName: vpn-decrypt-wg
+        - name: dev-net-tun
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice

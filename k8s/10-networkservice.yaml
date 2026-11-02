@@ -1,0 +1,21 @@
+apiVersion: networkservicemesh.io/v1
+kind: NetworkService
+metadata:
+  name: nse-ovs-vpn
+  namespace: nse-ovs-vpn
+spec:
+  payload: ETHERNET
+  matches:
+    - source_selector:
+        app: vpn-encrypt
+      routes:
+        - destination_selector:
+            app: vpn-decrypt
+    - source_selector:
+        app: vpn-decrypt
+      routes:
+        - destination_selector:
+            app: server
+    - routes:
+        - destination_selector:
+            app: vpn-encrypt
